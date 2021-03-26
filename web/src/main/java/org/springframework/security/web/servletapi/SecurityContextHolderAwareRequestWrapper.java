@@ -22,6 +22,7 @@ import java.util.Collection;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationTrustResolver;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.core.Authentication;
@@ -105,6 +106,9 @@ public class SecurityContextHolderAwareRequestWrapper extends HttpServletRequest
 		}
 		if (auth.getPrincipal() instanceof UserDetails) {
 			return ((UserDetails) auth.getPrincipal()).getUsername();
+		}
+		if (auth instanceof AbstractAuthenticationToken) {
+			return auth.getName();
 		}
 		return auth.getPrincipal().toString();
 	}

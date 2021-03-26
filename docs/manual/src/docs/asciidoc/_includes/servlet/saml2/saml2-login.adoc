@@ -223,13 +223,15 @@ static {
 
             public Element marshall(XMLObject object, Document document) throws MarshallingException {
 				configureAuthnRequest((AuthnRequest) object);
-				return super.marshall(object, element);
+				return super.marshall(object, document);
             }
 
             private void configureAuthnRequest(AuthnRequest authnRequest) {
 				authnRequest.setForceAuthN(true);
             }
 		}
+		
+	    factory.getMarshallerFactory().registerMarshaller(AuthnRequest.DEFAULT_ELEMENT_NAME, marshaller);
 	});
 }
 ----
@@ -1024,6 +1026,15 @@ This is often as simple as finding the correct form field to supply the metadata
 
 By default, the metadata endpoint is `+/saml2/service-provider-metadata/{registrationId}+`.
 You can change this by calling the `setRequestMatcher` method on the filter:
+
+[source,java]
+----
+filter.setRequestMatcher(new AntPathRequestMatcher("/saml2/metadata/{registrationId}", "GET"));
+----
+
+ensuring that the `registrationId` hint is at the end of the path.
+
+Or, if you have registered a custom relying party registration resolver in the constructor, then you can specify a path without a `registrationId` hint, like so:
 
 [source,java]
 ----

@@ -526,8 +526,8 @@ client-registration.attlist &=
 	## The client secret.
 	attribute client-secret {xsd:token}?
 client-registration.attlist &=
-	## The method used to authenticate the client with the provider. The supported values are basic, post and none (public clients).
-	attribute client-authentication-method {"basic" | "post" | "none"}?
+	## The method used to authenticate the client with the provider. The supported values are client_secret_basic, client_secret_post and none (public clients).
+	attribute client-authentication-method {"client_secret_basic" | "basic" | "client_secret_post" | "post" | "none"}?
 client-registration.attlist &=
 	## The OAuth 2.0 Authorization Framework defines four Authorization Grant types. The supported values are authorization_code, client_credentials, password and implicit.
 	attribute authorization-grant-type {"authorization_code" | "client_credentials" | "password" | "implicit"}?
@@ -714,7 +714,7 @@ concurrency-control =
 
 concurrency-control.attlist &=
 	## The maximum number of sessions a single authenticated user can have open at the same time. Defaults to "1". A negative value denotes unlimited sessions.
-	attribute max-sessions {xsd:integer}?
+	attribute max-sessions {xsd:token}?
 concurrency-control.attlist &=
 	## The URL a user will be redirected to if they attempt to use a session which has been "expired" because they have logged in again.
 	attribute expired-url {xsd:token}?
@@ -919,7 +919,7 @@ csrf-options.attlist &=
 
 headers =
 ## Element for configuration of the HeaderWritersFilter. Enables easy setting for the X-Frame-Options, X-XSS-Protection and X-Content-Type-Options headers.
-element headers { headers-options.attlist, (cache-control? & xss-protection? & hsts? & frame-options? & content-type-options? & hpkp? & content-security-policy? & referrer-policy? & feature-policy? & header*)}
+element headers { headers-options.attlist, (cache-control? & xss-protection? & hsts? & frame-options? & content-type-options? & hpkp? & content-security-policy? & referrer-policy? & feature-policy? & permissions-policy? & header*)}
 headers-options.attlist &=
 	## Specifies if the default headers should be disabled. Default false.
 	attribute defaults-disabled {xsd:token}?
@@ -1006,6 +1006,13 @@ feature-policy =
 feature-options.attlist &=
 	## The security policy directive(s) for the Feature-Policy header.
 	attribute policy-directives {xsd:token}?
+
+permissions-policy =
+	## Adds support for Permissions Policy
+	element permissions-policy {permissions-options.attlist}
+permissions-options.attlist &=
+	## The policies for the Permissions-Policy header.
+	attribute policy {xsd:token}?
 
 cache-control =
 	## Adds Cache-Control no-cache, no-store, must-revalidate, Pragma no-cache, and Expires 0 for every request

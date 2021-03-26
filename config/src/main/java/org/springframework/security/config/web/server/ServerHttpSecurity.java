@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,6 @@ import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
@@ -107,7 +106,6 @@ import org.springframework.security.web.server.DelegatingServerAuthenticationEnt
 import org.springframework.security.web.server.MatcherSecurityWebFilterChain;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.ServerAuthenticationEntryPoint;
-import org.springframework.security.web.server.WebFilterExchange;
 import org.springframework.security.web.server.authentication.AnonymousAuthenticationWebFilter;
 import org.springframework.security.web.server.authentication.AuthenticationConverterServerWebExchangeMatcher;
 import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
@@ -149,6 +147,7 @@ import org.springframework.security.web.server.header.ContentSecurityPolicyServe
 import org.springframework.security.web.server.header.ContentTypeOptionsServerHttpHeadersWriter;
 import org.springframework.security.web.server.header.FeaturePolicyServerHttpHeadersWriter;
 import org.springframework.security.web.server.header.HttpHeaderWriterWebFilter;
+import org.springframework.security.web.server.header.PermissionsPolicyServerHttpHeadersWriter;
 import org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter;
 import org.springframework.security.web.server.header.ReferrerPolicyServerHttpHeadersWriter.ReferrerPolicy;
 import org.springframework.security.web.server.header.ServerHttpHeadersWriter;
@@ -2232,13 +2231,16 @@ public class ServerHttpSecurity {
 
 		private FeaturePolicyServerHttpHeadersWriter featurePolicy = new FeaturePolicyServerHttpHeadersWriter();
 
+		private PermissionsPolicyServerHttpHeadersWriter permissionsPolicy = new PermissionsPolicyServerHttpHeadersWriter();
+
 		private ContentSecurityPolicyServerHttpHeadersWriter contentSecurityPolicy = new ContentSecurityPolicyServerHttpHeadersWriter();
 
 		private ReferrerPolicyServerHttpHeadersWriter referrerPolicy = new ReferrerPolicyServerHttpHeadersWriter();
 
 		private HeaderSpec() {
 			this.writers = new ArrayList<>(Arrays.asList(this.cacheControl, this.contentTypeOptions, this.hsts,
-					this.frameOptions, this.xss, this.featurePolicy, this.contentSecurityPolicy, this.referrerPolicy));
+					this.frameOptions, this.xss, this.featurePolicy, this.permissionsPolicy, this.contentSecurityPolicy,
+					this.referrerPolicy));
 		}
 
 		/**
@@ -2395,11 +2397,30 @@ public class ServerHttpSecurity {
 
 		/**
 		 * Configures {@code Feature-Policy} response header.
-		 * @param policyDirectives the policy directive(s)
+		 * @param policyDirectives the policy
 		 * @return the {@link FeaturePolicySpec} to configure
 		 */
 		public FeaturePolicySpec featurePolicy(String policyDirectives) {
 			return new FeaturePolicySpec(policyDirectives);
+		}
+
+		/**
+		 * Configures {@code Permissions-Policy} response header.
+		 * @return the {@link PermissionsPolicySpec} to configure
+		 */
+		public PermissionsPolicySpec permissionsPolicy() {
+			return new PermissionsPolicySpec();
+		}
+
+		/**
+		 * Configures {@code Permissions-Policy} response header.
+		 * @param permissionsPolicyCustomizer the {@link Customizer} to provide more
+		 * options for the {@link PermissionsPolicySpec}
+		 * @return the {@link HeaderSpec} to customize
+		 */
+		public HeaderSpec permissionsPolicy(Customizer<PermissionsPolicySpec> permissionsPolicyCustomizer) {
+			permissionsPolicyCustomizer.customize(new PermissionsPolicySpec());
+			return this;
 		}
 
 		/**
@@ -2664,6 +2685,38 @@ public class ServerHttpSecurity {
 
 			private FeaturePolicySpec(String policyDirectives) {
 				HeaderSpec.this.featurePolicy.setPolicyDirectives(policyDirectives);
+			}
+
+			/**
+			 * Allows method chaining to continue configuring the
+			 * {@link ServerHttpSecurity}.
+			 * @return the {@link HeaderSpec} to continue configuring
+			 */
+			public HeaderSpec and() {
+				return HeaderSpec.this;
+			}
+
+		}
+
+		/**
+		 * Configures {@code Permissions-Policy} response header.
+		 *
+		 * @since 5.5
+		 * @see #permissionsPolicy()
+		 */
+		public final class PermissionsPolicySpec {
+
+			private PermissionsPolicySpec() {
+			}
+
+			/**
+			 * Sets the policy to be used in the response header.
+			 * @param policy a permissions policy
+			 * @return the {@link PermissionsPolicySpec} to continue configuring
+			 */
+			public PermissionsPolicySpec policy(String policy) {
+				HeaderSpec.this.permissionsPolicy.setPolicy(policy);
+				return this;
 			}
 
 			/**
@@ -3725,30 +3778,6 @@ public class ServerHttpSecurity {
 			return ServerHttpSecurity.this;
 		}
 
-		private class BearerTokenAuthenticationWebFilter extends AuthenticationWebFilter {
-
-			private ServerAuthenticationFailureHandler authenticationFailureHandler;
-
-			BearerTokenAuthenticationWebFilter(ReactiveAuthenticationManager authenticationManager) {
-				super(authenticationManager);
-			}
-
-			@Override
-			public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-				WebFilterExchange webFilterExchange = new WebFilterExchange(exchange, chain);
-				return super.filter(exchange, chain).onErrorResume(AuthenticationException.class,
-						(e) -> this.authenticationFailureHandler.onAuthenticationFailure(webFilterExchange, e));
-			}
-
-			@Override
-			public void setAuthenticationFailureHandler(
-					ServerAuthenticationFailureHandler authenticationFailureHandler) {
-				super.setAuthenticationFailureHandler(authenticationFailureHandler);
-				this.authenticationFailureHandler = authenticationFailureHandler;
-			}
-
-		}
-
 		/**
 		 * Configures JWT Resource Server Support
 		 */
@@ -3825,7 +3854,7 @@ public class ServerHttpSecurity {
 
 			protected void configure(ServerHttpSecurity http) {
 				ReactiveAuthenticationManager authenticationManager = getAuthenticationManager();
-				AuthenticationWebFilter oauth2 = new BearerTokenAuthenticationWebFilter(authenticationManager);
+				AuthenticationWebFilter oauth2 = new AuthenticationWebFilter(authenticationManager);
 				oauth2.setServerAuthenticationConverter(OAuth2ResourceServerSpec.this.bearerTokenConverter);
 				oauth2.setAuthenticationFailureHandler(
 						new ServerAuthenticationEntryPointFailureHandler(OAuth2ResourceServerSpec.this.entryPoint));
@@ -3930,7 +3959,7 @@ public class ServerHttpSecurity {
 
 			protected void configure(ServerHttpSecurity http) {
 				ReactiveAuthenticationManager authenticationManager = getAuthenticationManager();
-				AuthenticationWebFilter oauth2 = new BearerTokenAuthenticationWebFilter(authenticationManager);
+				AuthenticationWebFilter oauth2 = new AuthenticationWebFilter(authenticationManager);
 				oauth2.setServerAuthenticationConverter(OAuth2ResourceServerSpec.this.bearerTokenConverter);
 				oauth2.setAuthenticationFailureHandler(
 						new ServerAuthenticationEntryPointFailureHandler(OAuth2ResourceServerSpec.this.entryPoint));

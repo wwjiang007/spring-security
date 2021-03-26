@@ -17,7 +17,6 @@
 package org.springframework.security.web.savedrequest;
 
 import java.util.Base64;
-import java.util.HashMap;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
@@ -30,7 +29,6 @@ import org.springframework.security.web.util.UrlUtils;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.Assert;
-import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -78,12 +76,6 @@ public class CookieRequestCache implements RequestCache {
 		UriComponents uriComponents = UriComponentsBuilder.fromUriString(originalURI).build();
 		DefaultSavedRequest.Builder builder = new DefaultSavedRequest.Builder();
 		int port = getPort(uriComponents);
-		MultiValueMap<String, String> queryParams = uriComponents.getQueryParams();
-		if (!queryParams.isEmpty()) {
-			HashMap<String, String[]> parameters = new HashMap<>(queryParams.size());
-			queryParams.forEach((key, value) -> parameters.put(key, value.toArray(new String[] {})));
-			builder.setParameters(parameters);
-		}
 		return builder.setScheme(uriComponents.getScheme()).setServerName(uriComponents.getHost())
 				.setRequestURI(uriComponents.getPath()).setQueryString(uriComponents.getQuery()).setServerPort(port)
 				.setMethod(request.getMethod()).build();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -387,7 +387,8 @@ class HttpConfigurationBuilder {
 			concurrentSessionStrategy = BeanDefinitionBuilder
 					.rootBeanDefinition(ConcurrentSessionControlAuthenticationStrategy.class);
 			concurrentSessionStrategy.addConstructorArgValue(this.sessionRegistryRef);
-			String maxSessions = sessionCtrlElt.getAttribute("max-sessions");
+			String maxSessions = this.pc.getReaderContext().getEnvironment()
+					.resolvePlaceholders(sessionCtrlElt.getAttribute("max-sessions"));
 			if (StringUtils.hasText(maxSessions)) {
 				concurrentSessionStrategy.addPropertyValue("maximumSessions", maxSessions);
 			}

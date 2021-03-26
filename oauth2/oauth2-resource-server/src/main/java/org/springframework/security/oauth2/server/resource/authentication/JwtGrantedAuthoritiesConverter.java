@@ -94,7 +94,7 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 			return this.authoritiesClaimName;
 		}
 		for (String claimName : WELL_KNOWN_AUTHORITIES_CLAIM_NAMES) {
-			if (jwt.containsClaim(claimName)) {
+			if (jwt.hasClaim(claimName)) {
 				return claimName;
 			}
 		}
@@ -118,9 +118,14 @@ public final class JwtGrantedAuthoritiesConverter implements Converter<Jwt, Coll
 			return Collections.emptyList();
 		}
 		if (authorities instanceof Collection) {
-			return (Collection<String>) authorities;
+			return castAuthoritiesToCollection(authorities);
 		}
 		return Collections.emptyList();
+	}
+
+	@SuppressWarnings("unchecked")
+	private Collection<String> castAuthoritiesToCollection(Object authorities) {
+		return (Collection<String>) authorities;
 	}
 
 }
