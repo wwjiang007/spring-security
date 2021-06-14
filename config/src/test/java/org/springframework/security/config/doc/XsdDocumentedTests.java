@@ -22,10 +22,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -185,8 +185,8 @@ public class XsdDocumentedTests {
 	 */
 	@Test
 	public void countLinksWhenReviewingDocumentationThenParentsAndChildrenAreCorrectlyLinked() throws IOException {
-		Map<String, List<String>> docAttrNameToChildren = new HashMap<>();
-		Map<String, List<String>> docAttrNameToParents = new HashMap<>();
+		Map<String, List<String>> docAttrNameToChildren = new TreeMap<>();
+		Map<String, List<String>> docAttrNameToParents = new TreeMap<>();
 		String docAttrName = null;
 		Map<String, List<String>> currentDocAttrNameToElmt = null;
 		List<String> lines = Files.readAllLines(Paths.get(this.referenceLocation));
@@ -201,13 +201,13 @@ public class XsdDocumentedTests {
 					docAttrName = id.substring(0, id.length() - 8);
 					currentDocAttrNameToElmt = docAttrNameToParents;
 				}
-				else if (docAttrName != null && !id.startsWith(docAttrName)) {
+				else if (id.endsWith("-attributes") || docAttrName != null && !id.startsWith(docAttrName)) {
 					currentDocAttrNameToElmt = null;
 					docAttrName = null;
 				}
 			}
 			if (docAttrName != null && currentDocAttrNameToElmt != null) {
-				String expression = "^\\* <<(nsa-.*),.*>>$";
+				String expression = ".*<<(nsa-.*),.*>>.*";
 				if (line.matches(expression)) {
 					String elmtId = line.replaceAll(expression, "$1");
 					currentDocAttrNameToElmt.computeIfAbsent(docAttrName, (key) -> new ArrayList<>()).add(elmtId);
@@ -215,8 +215,8 @@ public class XsdDocumentedTests {
 			}
 		}
 		Map<String, Element> elementNameToElement = this.xml.elementsByElementName(this.schemaDocumentLocation);
-		Map<String, List<String>> schemaAttrNameToChildren = new HashMap<>();
-		Map<String, List<String>> schemaAttrNameToParents = new HashMap<>();
+		Map<String, List<String>> schemaAttrNameToChildren = new TreeMap<>();
+		Map<String, List<String>> schemaAttrNameToParents = new TreeMap<>();
 		elementNameToElement.entrySet().stream().forEach((entry) -> {
 			String key = "nsa-" + entry.getKey();
 			if (this.ignoredIds.contains(key)) {
@@ -248,8 +248,23 @@ public class XsdDocumentedTests {
 				schemaAttrNameToChildren.put(key, childIds);
 			}
 		});
-		assertThat(docAttrNameToChildren).isEqualTo(schemaAttrNameToChildren);
-		assertThat(docAttrNameToParents).isEqualTo(schemaAttrNameToParents);
+		assertThat(docAttrNameToChildren)
+				.describedAs(toString(docAttrNameToChildren) + "\n!=\n\n" + toString(schemaAttrNameToChildren))
+				.containsExactlyInAnyOrderEntriesOf(schemaAttrNameToChildren);
+		assertThat(docAttrNameToParents)
+				.describedAs(toString(docAttrNameToParents) + "\n!=\n\n" + toString(schemaAttrNameToParents))
+				.containsExactlyInAnyOrderEntriesOf(schemaAttrNameToParents);
+	}
+
+	private String toString(Map<?, ?> map) {
+		StringBuffer buffer = new StringBuffer();
+		map.forEach((k, v) -> {
+			buffer.append(k);
+			buffer.append("=");
+			buffer.append(v);
+			buffer.append("\n");
+		});
+		return buffer.toString();
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.access.intercept.aopalliance.MethodSecurityInterceptor;
@@ -192,6 +193,15 @@ public class GlobalMethodSecurityConfigurationTests {
 		MockBeanPostProcessor pp = this.spring.getContext().getBean(MockBeanPostProcessor.class);
 		assertThat(pp.beforeInit).containsKeys("dataSource");
 		assertThat(pp.afterInit).containsKeys("dataSource");
+	}
+
+	// SEC-9845
+	@Test
+	public void enableGlobalMethodSecurityWhenBeanPostProcessorThenInvokedForDefaultMethodSecurityExpressionHandler() {
+		this.spring.register(Sec9845Config.class).autowire();
+		MockBeanPostProcessor pp = this.spring.getContext().getBean(MockBeanPostProcessor.class);
+		assertThat(pp.beforeInitClass).containsKeys(DefaultMethodSecurityExpressionHandler.class);
+		assertThat(pp.afterInitClass).containsKeys(DefaultMethodSecurityExpressionHandler.class);
 	}
 
 	// SEC-3045
@@ -441,21 +451,37 @@ public class GlobalMethodSecurityConfigurationTests {
 
 	}
 
+	@EnableGlobalMethodSecurity(prePostEnabled = true)
+	static class Sec9845Config {
+
+		@Bean
+		BeanPostProcessor mockBeanPostProcessor() {
+			return new MockBeanPostProcessor();
+		}
+
+	}
+
 	static class MockBeanPostProcessor implements BeanPostProcessor {
 
 		Map<String, Object> beforeInit = new HashMap<>();
 
 		Map<String, Object> afterInit = new HashMap<>();
 
+		Map<Class<?>, Object> beforeInitClass = new HashMap<>();
+
+		Map<Class<?>, Object> afterInitClass = new HashMap<>();
+
 		@Override
 		public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
 			this.beforeInit.put(beanName, bean);
+			this.beforeInitClass.put(bean.getClass(), bean);
 			return bean;
 		}
 
 		@Override
 		public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
 			this.afterInit.put(beanName, bean);
+			this.afterInitClass.put(bean.getClass(), bean);
 			return bean;
 		}
 

@@ -227,6 +227,21 @@ public class CsrfWebFilterTests {
 				.isForbidden();
 	}
 
+	// gh-9113
+	@Test
+	public void filterWhenSubscribingCsrfTokenMultipleTimesThenGenerateOnlyOnce() {
+		PublisherProbe<CsrfToken> chainResult = PublisherProbe.empty();
+		this.csrfFilter.setCsrfTokenRepository(this.repository);
+		given(this.repository.loadToken(any())).willReturn(Mono.empty());
+		given(this.repository.generateToken(any())).willReturn(chainResult.mono());
+		given(this.chain.filter(any())).willReturn(Mono.empty());
+		this.csrfFilter.filter(this.get, this.chain).block();
+		Mono<CsrfToken> result = this.get.getAttribute(CsrfToken.class.getName());
+		result.block();
+		result.block();
+		assertThat(chainResult.subscribeCount()).isEqualTo(1);
+	}
+
 	@RestController
 	static class OkController {
 
