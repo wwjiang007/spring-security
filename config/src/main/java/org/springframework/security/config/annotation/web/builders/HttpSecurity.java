@@ -59,6 +59,7 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.annotation.web.configurers.HttpBasicConfigurer;
 import org.springframework.security.config.annotation.web.configurers.JeeConfigurer;
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
+import org.springframework.security.config.annotation.web.configurers.PasswordManagementConfigurer;
 import org.springframework.security.config.annotation.web.configurers.PortMapperConfigurer;
 import org.springframework.security.config.annotation.web.configurers.RememberMeConfigurer;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
@@ -1281,7 +1282,85 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 	 * 	&#064;Override
 	 * 	protected void configure(HttpSecurity http) throws Exception {
 	 * 		http
-	 * 			.authorizeHttpRequests((authorizeHttpRequests) -&gt;
+	 * 			.authorizeHttpRequests()
+	 * 				.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
+	 * 				.and()
+	 * 			.formLogin();
+	 * 	}
+	 * }
+	 * </pre>
+	 *
+	 * We can also configure multiple URLs. The configuration below requires
+	 * authentication to every URL and will grant access to URLs starting with /admin/ to
+	 * only the "admin" user. All other URLs either user can access.
+	 *
+	 * <pre>
+	 * &#064;Configuration
+	 * &#064;EnableWebSecurity
+	 * public class AuthorizeUrlsSecurityConfig extends WebSecurityConfigurerAdapter {
+	 *
+	 * 	&#064;Override
+	 * 	protected void configure(HttpSecurity http) throws Exception {
+	 * 		http
+	 * 			.authorizeHttpRequests()
+	 * 				.antMatchers(&quot;/admin&quot;).hasRole(&quot;ADMIN&quot;)
+	 * 				.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
+	 * 				.and()
+	 * 			.formLogin();
+	 * 	}
+	 * }
+	 * </pre>
+	 *
+	 * Note that the matchers are considered in order. Therefore, the following is invalid
+	 * because the first matcher matches every request and will never get to the second
+	 * mapping:
+	 *
+	 * <pre>
+	 * &#064;Configuration
+	 * &#064;EnableWebSecurity
+	 * public class AuthorizeUrlsSecurityConfig extends WebSecurityConfigurerAdapter {
+	 *
+	 * 	&#064;Override
+	 * 	protected void configure(HttpSecurity http) throws Exception {
+	 * 		http
+	 * 			.authorizeHttpRequests()
+	 * 				.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
+	 * 				.antMatchers(&quot;/admin/**&quot;).hasRole(&quot;ADMIN&quot;)
+	 * 				.and()
+	 * 			.formLogin();
+	 * 	}
+	 * }
+	 * </pre>
+	 * @return the {@link HttpSecurity} for further customizations
+	 * @throws Exception
+	 * @since 5.6
+	 * @see #requestMatcher(RequestMatcher)
+	 */
+	public AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry authorizeHttpRequests()
+			throws Exception {
+		ApplicationContext context = getContext();
+		return getOrApply(new AuthorizeHttpRequestsConfigurer<>(context)).getRegistry();
+	}
+
+	/**
+	 * Allows restricting access based upon the {@link HttpServletRequest} using
+	 * {@link RequestMatcher} implementations (i.e. via URL patterns).
+	 *
+	 * <h2>Example Configurations</h2>
+	 *
+	 * The most basic example is to configure all URLs to require the role "ROLE_USER".
+	 * The configuration below requires authentication to every URL and will grant access
+	 * to both the user "admin" and "user".
+	 *
+	 * <pre>
+	 * &#064;Configuration
+	 * &#064;EnableWebSecurity
+	 * public class AuthorizeUrlsSecurityConfig extends WebSecurityConfigurerAdapter {
+	 *
+	 * 	&#064;Override
+	 * 	protected void configure(HttpSecurity http) throws Exception {
+	 * 		http
+	 * 			.authorizeHttpRequests((authorizeHttpRequests) ->
 	 * 				authorizeHttpRequests
 	 * 					.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
 	 * 			)
@@ -1302,7 +1381,7 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 	 * 	&#064;Override
 	 * 	protected void configure(HttpSecurity http) throws Exception {
 	 * 		http
-	 * 			.authorizeHttpRequests((authorizeHttpRequests) -&gt;
+	 * 			.authorizeHttpRequests((authorizeHttpRequests) ->
 	 * 				authorizeHttpRequests
 	 * 					.antMatchers(&quot;/admin/**&quot;).hasRole(&quot;ADMIN&quot;)
 	 * 					.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
@@ -1324,7 +1403,7 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 	 * 	&#064;Override
 	 * 	protected void configure(HttpSecurity http) throws Exception {
 	 * 		http
-	 * 		 	.authorizeHttpRequests((authorizeHttpRequests) -&gt;
+	 * 		 	.authorizeHttpRequests((authorizeHttpRequests) ->
 	 * 		 		authorizeHttpRequests
 	 * 			 		.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
 	 * 			 		.antMatchers(&quot;/admin/**&quot;).hasRole(&quot;ADMIN&quot;)
@@ -2604,6 +2683,45 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 		return HttpSecurity.this;
 	}
 
+	/**
+	 * Adds support for the password management.
+	 *
+	 * <h2>Example Configuration</h2> The example below demonstrates how to configure
+	 * password management for an application. The default change password page is
+	 * "/change-password", but can be customized using
+	 * {@link PasswordManagementConfigurer#changePasswordPage(String)}.
+	 *
+	 * <pre>
+	 * &#064;Configuration
+	 * &#064;EnableWebSecurity
+	 * public class PasswordManagementSecurityConfig extends WebSecurityConfigurerAdapter {
+	 *
+	 * 	&#064;Override
+	 * 	protected void configure(HttpSecurity http) throws Exception {
+	 * 		http
+	 * 			.authorizeRequests(authorizeRequests ->
+	 * 				authorizeRequests
+	 * 					.antMatchers(&quot;/**&quot;).hasRole(&quot;USER&quot;)
+	 * 			)
+	 * 			.passwordManagement(passwordManagement ->
+	 * 				passwordManagement
+	 * 					.changePasswordPage(&quot;/custom-change-password-page&quot;)
+	 * 			);
+	 *  }
+	 * }
+	 * </pre>
+	 * @param passwordManagementCustomizer the {@link Customizer} to provide more options
+	 * for the {@link PasswordManagementConfigurer}
+	 * @return the {@link HttpSecurity} for further customizations
+	 * @throws Exception
+	 * @since 5.6
+	 */
+	public HttpSecurity passwordManagement(
+			Customizer<PasswordManagementConfigurer<HttpSecurity>> passwordManagementCustomizer) throws Exception {
+		passwordManagementCustomizer.customize(getOrApply(new PasswordManagementConfigurer<>()));
+		return HttpSecurity.this;
+	}
+
 	@Override
 	public <C> void setSharedObject(Class<C> sharedType, C object) {
 		super.setSharedObject(sharedType, object);
@@ -2653,6 +2771,7 @@ public final class HttpSecurity extends AbstractConfiguredSecurityBuilder<Defaul
 	private HttpSecurity addFilterAtOffsetOf(Filter filter, int offset, Class<? extends Filter> registeredFilter) {
 		int order = this.filterOrders.getOrder(registeredFilter) + offset;
 		this.filters.add(new OrderedFilter(filter, order));
+		this.filterOrders.put(filter.getClass(), order);
 		return this;
 	}
 
